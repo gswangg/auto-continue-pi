@@ -51,6 +51,3 @@ ln -sf /path/to/auto-continue-pi/extensions/auto-continue.ts ~/.pi/agent/extensi
 
 See [SPEC.md](./SPEC.md) for the full design document, state model, action semantics, test plan, and non-goals.
 
-## License
-
-MIT
