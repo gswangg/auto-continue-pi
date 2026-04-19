@@ -28,7 +28,7 @@
   },
   "pi": {
     "extensions": [
-      "extensions"
+      "extensions/auto-continue.ts"
     ],
     "skills": [
       "skills"

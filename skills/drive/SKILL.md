@@ -1,7 +1,7 @@
 ---
 name: drive
 description: Start or resume a long-running autonomous work loop on a task. Use when the user asks to "drive on X", "keep pushing on X", "continue driving Y", or explicitly invokes /skill:drive. The skill wires up the ac auto-continue queue with a drain-time prompt so the agent keeps generating and executing work between turns until OAuth limits, explicit ac off, or external interruption. Not for one-off tasks — only invoke for open-ended ongoing work.
-argument-hint: [task-name] [optional seed describing the work]
+argument-hint: "[task-name] [optional seed]"
 ---
 
 # Drive — Long-running autonomous work loop
