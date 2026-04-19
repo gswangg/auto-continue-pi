@@ -16,10 +16,15 @@
     "@mariozechner/pi-coding-agent": "*",
     "@sinclair/typebox": "*"
   },
+  "scripts": {
+    "test": "vitest run"
+  },
   "devDependencies": {
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
-    "@sinclair/typebox": "*"
+    "@sinclair/typebox": "*",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
   },
   "pi": {
     "extensions": [
