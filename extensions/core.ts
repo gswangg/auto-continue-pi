@@ -170,6 +170,10 @@ export function acUndrive(state: AcState): ActionResult {
  * Called on each `agent_end`. Returns a string to inject as the next
  * followUp, or `undefined` to do nothing. Mutates `state.enabled` when
  * the loop should stop (fifo mode drain, or onDrain returning undefined).
+ *
+ * Both fifo and drive injections are tagged with `[auto-continue]` so
+ * they are distinguishable from ordinary user messages in the session
+ * transcript. The tag pattern mirrors the existing fifo convention.
  */
 export function evaluateAgentEnd(state: AcState): string | undefined {
   if (!state.enabled) return undefined;
@@ -189,5 +193,9 @@ export function evaluateAgentEnd(state: AcState): string | undefined {
     state.enabled = false;
     return undefined;
   }
-  return prompt;
+  return (
+    `[auto-continue] drive (queue empty)\n` +
+    prompt + `\n` +
+    `Call ac off to pause. ac undrive to disable the drive prompt.`
+  );
 }

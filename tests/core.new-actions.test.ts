@@ -200,12 +200,15 @@ describe("on / done with drain hook installed", () => {
 });
 
 describe("evaluateAgentEnd — drain mode", () => {
-  it("injects stored prompt when queue is empty and enabled", () => {
+  it("injects stored prompt wrapped in auto-continue tag when queue is empty", () => {
     const s = createAcState();
     acDrive(s, "find the next thing to do");
     acOn(s);
     const text = evaluateAgentEnd(s);
-    expect(text).toBe("find the next thing to do");
+    expect(text).toContain("[auto-continue] drive");
+    expect(text).toContain("find the next thing to do");
+    expect(text).toContain("ac off");
+    expect(text).toContain("ac undrive");
     expect(s.enabled).toBe(true);
   });
 
@@ -217,7 +220,8 @@ describe("evaluateAgentEnd — drain mode", () => {
     expect(s.enabled).toBe(true);
     // Second drain still fires.
     const text2 = evaluateAgentEnd(s);
-    expect(text2).toBe("go");
+    expect(text2).toContain("go");
+    expect(text2).toContain("[auto-continue] drive");
   });
 
   it("queued tasks take precedence over drain injection", () => {
@@ -226,8 +230,10 @@ describe("evaluateAgentEnd — drain mode", () => {
     acPush(s, "specific task");
     acOn(s);
     const text = evaluateAgentEnd(s);
+    expect(text).toContain("[auto-continue] current task");
     expect(text).toContain("specific task");
     expect(text).not.toContain("find work");
+    expect(text).not.toContain("drive (queue empty)");
   });
 
   it("returns undefined when onDrain returns undefined and disables", () => {
