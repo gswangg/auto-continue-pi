@@ -8,21 +8,22 @@ argument-hint: "[task-name] [optional seed]"
 
 This skill sets up or resumes a drive session. A drive is a self-sustaining work loop: the ac queue drains normally, and when empty the extension re-injects a configured prompt that tells the agent to find more work. You use this skill to configure that loop for a specific task and kick it off.
 
-## Step 0: Determine task path
+## Step 0: Locate the drive directory
 
-The task argument identifies the drive's working directory, resolved relative to `~/pi-work/`. It may be a simple slug or a multi-segment path — both are valid:
+The drive's working directory defaults to the current working directory. The argument, if provided, overrides or extends that:
 
-- Simple: `cleanup`, `refactor-auth`, `notes-digest`, `forward` — resolves to `~/pi-work/<name>/`.
-- Nested: `mycelium/experiments/rime-forecasts`, `project-x/drives/research` — resolves to `~/pi-work/<path>/`.
+- **No argument**: drive dir = cwd. Expects `./drive-prompt.md` to exist (resume) or walks user through creating it (new drive).
+- **Relative path argument** (e.g., `primordia` or `drives/research`): drive dir = `<cwd>/<argument>/`.
+- **Absolute path argument** (e.g., `/workspace/rime-forecasts`): drive dir = argument.
 
-Use nested paths when the drive belongs to a larger project (e.g., drives living under a meta-repo like `mycelium`). Use simple names for standalone drives.
+The common pattern is to `cd` into the drive dir first and invoke `/skill:drive` with no argument. Use an argument only when you want to work from a parent dir and point at a child, or when the drive lives somewhere outside your current tree.
 
-If the user provided the argument, use that verbatim. Otherwise ask them.
+Use `pwd` if you need to see cwd explicitly.
 
 ## Step 1: Check for an existing drive-prompt
 
 ```
-~/pi-work/<task-path>/drive-prompt.md
+<drive-dir>/drive-prompt.md
 ```
 
 - **If it exists**, this is a resume. Go to Step 3.
@@ -82,9 +83,9 @@ Whether resuming or starting new, the wiring is the same:
 
 1. Call `ac drive` with this exact string:
    ```
-   Read and execute ~/pi-work/<task-path>/drive-prompt.md.
+   Read and execute <absolute-path-to-drive-prompt.md>.
    ```
-   (Replace `<task-path>` with the actual path, simple or nested.)
+   Use the absolute path (not `./drive-prompt.md`), because the ac extension injects this prompt on each drain as a followUp and the agent may not be in the same cwd when it reads it.
 2. Call `ac on`.
 
 That's it. The extension will inject the "Read and execute …" string as a followUp every time the ac queue empties while enabled. On each drain, the agent re-reads `drive-prompt.md` (fresh each time — it can be edited externally between cycles) and follows the instructions there.
