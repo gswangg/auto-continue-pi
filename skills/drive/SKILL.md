@@ -8,16 +8,21 @@ argument-hint: "[task-name] [optional seed]"
 
 This skill sets up or resumes a drive session. A drive is a self-sustaining work loop: the ac queue drains normally, and when empty the extension re-injects a configured prompt that tells the agent to find more work. You use this skill to configure that loop for a specific task and kick it off.
 
-## Step 0: Determine task name
+## Step 0: Determine task path
 
-The task name is a short slug (kebab-case) identifying this drive. It becomes a directory name under `~/pi-work/`. Examples: `cleanup`, `refactor-auth`, `notes-digest`, `forward`.
+The task argument identifies the drive's working directory, resolved relative to `~/pi-work/`. It may be a simple slug or a multi-segment path — both are valid:
 
-If the user provided it as the argument, use that. Otherwise ask them.
+- Simple: `cleanup`, `refactor-auth`, `notes-digest`, `forward` — resolves to `~/pi-work/<name>/`.
+- Nested: `mycelium/experiments/rime-forecasts`, `project-x/drives/research` — resolves to `~/pi-work/<path>/`.
+
+Use nested paths when the drive belongs to a larger project (e.g., drives living under a meta-repo like `mycelium`). Use simple names for standalone drives.
+
+If the user provided the argument, use that verbatim. Otherwise ask them.
 
 ## Step 1: Check for an existing drive-prompt
 
 ```
-~/pi-work/<task-name>/drive-prompt.md
+~/pi-work/<task-path>/drive-prompt.md
 ```
 
 - **If it exists**, this is a resume. Go to Step 3.
@@ -69,7 +74,7 @@ After completing each task, append a JSON object to `~/pi-work/<task-name>/journ
 <when should `ac off` be called>
 ```
 
-Create the working directory if it doesn't exist. You can also seed the initial queue here by calling `ac push` with 1–3 concrete starter items if you know them.
+Create the full directory tree if it doesn't exist (`mkdir -p`), including any intermediate path segments. You can also seed the initial queue here by calling `ac push` with 1–3 concrete starter items if you know them.
 
 ## Step 3: Wire up ac and enable the loop
 
@@ -77,9 +82,9 @@ Whether resuming or starting new, the wiring is the same:
 
 1. Call `ac drive` with this exact string:
    ```
-   Read and execute ~/pi-work/<task-name>/drive-prompt.md.
+   Read and execute ~/pi-work/<task-path>/drive-prompt.md.
    ```
-   (Replace `<task-name>` with the actual task name.)
+   (Replace `<task-path>` with the actual path, simple or nested.)
 2. Call `ac on`.
 
 That's it. The extension will inject the "Read and execute …" string as a followUp every time the ac queue empties while enabled. On each drain, the agent re-reads `drive-prompt.md` (fresh each time — it can be edited externally between cycles) and follows the instructions there.
