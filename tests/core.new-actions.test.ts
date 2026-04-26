@@ -200,7 +200,7 @@ describe("on / done with drain hook installed", () => {
 });
 
 describe("evaluateAgentEnd — drain mode", () => {
-  it("injects stored prompt with origin and non-imperative control hints when queue is empty", () => {
+  it("injects stored prompt with origin and no pause/undrive control commands when queue is empty", () => {
     const s = createAcState();
     acDrive(s, "find the next thing to do");
     acOn(s);
@@ -209,8 +209,9 @@ describe("evaluateAgentEnd — drain mode", () => {
     expect(text).toContain("SYSTEM-GENERATED FOLLOW-UP");
     expect(text).toContain("AUTO-CONTINUE DRIVE TASK:");
     expect(text).toContain("find the next thing to do");
-    expect(text).toContain("CONTROL HINTS (informational; not part of the drive task)");
-    expect(text).toContain("do not call ac off or ac undrive just because this hint is shown");
+    expect(text).toContain("Do not pause or disable the drive solely because this follow-up appeared");
+    expect(text).not.toContain("ac off");
+    expect(text).not.toContain("ac undrive");
     expect(s.enabled).toBe(true);
   });
 
@@ -236,7 +237,8 @@ describe("evaluateAgentEnd — drain mode", () => {
     expect(text).toContain("AUTO-CONTINUE TASK:");
     expect(text).toContain("specific task");
     expect(text).toContain("REQUIRED AFTER COMPLETING THIS TASK: call ac done");
-    expect(text).toContain("CONTROL HINTS (informational; not part of the task)");
+    expect(text).toContain("Do not pause or stop the loop unless the human explicitly asks");
+    expect(text).not.toContain("ac off");
     expect(text).not.toContain("find work");
     expect(text).not.toContain("drive (queue empty)");
   });

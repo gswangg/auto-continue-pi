@@ -26,7 +26,7 @@ Fork-agnostic: peer-deps on upstream `@mariozechner/pi-coding-agent` so this wor
 | `drive`  | Install drain-time prompt |
 | `undrive`| Clear drain-time prompt |
 
-The extension registers no slash commands. All queue operations go through the tool; the agent mediates (tell it "queue these tasks" or "pause the queue" and it handles the calls). Auto-generated followUps are tagged `[auto-continue]` and separate the actual task from informational control hints so the agent does not pause/undrive merely because the hint text is present.
+The extension registers no slash commands. All queue operations go through the tool; the agent mediates (tell it "queue these tasks" or "pause the queue" and it handles the calls). Auto-generated followUps are tagged `[auto-continue]`, label the actionable task explicitly, and avoid repeating pause/undrive commands that could be mistaken for human instructions.
 
 **`drive` skill** (`/skill:drive <task-name>`) — orchestration for long-running work. On invocation:
 
