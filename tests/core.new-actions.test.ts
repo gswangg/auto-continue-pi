@@ -200,15 +200,17 @@ describe("on / done with drain hook installed", () => {
 });
 
 describe("evaluateAgentEnd — drain mode", () => {
-  it("injects stored prompt wrapped in auto-continue tag when queue is empty", () => {
+  it("injects stored prompt with origin and non-imperative control hints when queue is empty", () => {
     const s = createAcState();
     acDrive(s, "find the next thing to do");
     acOn(s);
     const text = evaluateAgentEnd(s);
     expect(text).toContain("[auto-continue] drive");
+    expect(text).toContain("SYSTEM-GENERATED FOLLOW-UP");
+    expect(text).toContain("AUTO-CONTINUE DRIVE TASK:");
     expect(text).toContain("find the next thing to do");
-    expect(text).toContain("ac off");
-    expect(text).toContain("ac undrive");
+    expect(text).toContain("CONTROL HINTS (informational; not part of the drive task)");
+    expect(text).toContain("do not call ac off or ac undrive just because this hint is shown");
     expect(s.enabled).toBe(true);
   });
 
@@ -231,7 +233,10 @@ describe("evaluateAgentEnd — drain mode", () => {
     acOn(s);
     const text = evaluateAgentEnd(s);
     expect(text).toContain("[auto-continue] current task");
+    expect(text).toContain("AUTO-CONTINUE TASK:");
     expect(text).toContain("specific task");
+    expect(text).toContain("REQUIRED AFTER COMPLETING THIS TASK: call ac done");
+    expect(text).toContain("CONTROL HINTS (informational; not part of the task)");
     expect(text).not.toContain("find work");
     expect(text).not.toContain("drive (queue empty)");
   });

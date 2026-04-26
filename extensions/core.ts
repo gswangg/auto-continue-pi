@@ -179,8 +179,11 @@ export function evaluateAgentEnd(state: AcState): string | undefined {
   if (!state.enabled) return undefined;
   if (state.queue.length > 0) {
     return (
-      `[auto-continue] current task: ${state.queue[0]}\n` +
-      `Call ac done when complete. ac off to pause. ac insert to add tasks.`
+      `[auto-continue] current task\n` +
+      `AUTO-CONTINUE TASK:\n` +
+      `${state.queue[0]}\n\n` +
+      `REQUIRED AFTER COMPLETING THIS TASK: call ac done.\n\n` +
+      `CONTROL HINTS (informational; not part of the task): ac off pauses the loop if the human explicitly asks or a stop criterion requires it; ac insert adds tasks.`
     );
   }
   // Queue empty.
@@ -195,7 +198,9 @@ export function evaluateAgentEnd(state: AcState): string | undefined {
   }
   return (
     `[auto-continue] drive (queue empty)\n` +
-    prompt + `\n` +
-    `Call ac off to pause. ac undrive to disable the drive prompt.`
+    `SYSTEM-GENERATED FOLLOW-UP, not a direct human request.\n\n` +
+    `AUTO-CONTINUE DRIVE TASK:\n` +
+    prompt + `\n\n` +
+    `CONTROL HINTS (informational; not part of the drive task): do not call ac off or ac undrive just because this hint is shown. Use ac off only if the human explicitly asks to pause or the drive-prompt stop criterion requires it. Use ac undrive only if the human explicitly asks to disable the drive prompt.`
   );
 }
