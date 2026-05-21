@@ -124,10 +124,36 @@ export default function (pi: ExtensionAPI) {
   // After each agent turn: evaluate drain state and inject followUp if the
   // core tells us to. Core mutates `state.enabled` when the loop should
   // stop; we just wire the string through to pi.sendUserMessage.
-  pi.on("agent_end", async () => {
-    const text = evaluateAgentEnd(state);
+  //
+  // We also inspect the run's last assistant message to detect an errored
+  // turn (stopReason === "error"). The core uses that signal to drive the
+  // crash-loop guard — 5 consecutive errored turns disable the loop so we
+  // don't keep poking a model that's burning quota on failures.
+  pi.on("agent_end", async (event, ctx) => {
+    const errored = lastAssistantStopReason(event.messages) === "error";
+    const wasEnabled = state.enabled;
+    const text = evaluateAgentEnd(state, { errored });
+    if (wasEnabled && !state.enabled && state.consecutiveErrors >= state.errorThreshold) {
+      ctx.ui.notify(
+        `auto-continue: stopped after ${state.consecutiveErrors} consecutive errored turns`,
+        "error",
+      );
+    }
     if (text !== undefined) {
       pi.sendUserMessage(text, { deliverAs: "followUp" });
     }
   });
+}
+
+// Walks the agent_end message list backward to find the most recent
+// assistant message and returns its stopReason, or undefined if none.
+function lastAssistantStopReason(messages: unknown): string | undefined {
+  if (!Array.isArray(messages)) return undefined;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as { role?: unknown; stopReason?: unknown } | null;
+    if (m && typeof m === "object" && m.role === "assistant" && typeof m.stopReason === "string") {
+      return m.stopReason;
+    }
+  }
+  return undefined;
 }

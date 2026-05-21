@@ -18,7 +18,18 @@ export type AcState = {
    * future strategies that may decide to stop dynamically.
    */
   onDrain?: () => string | undefined;
+  /**
+   * Crash-loop guard. Counts consecutive turns that ended with
+   * stopReason "error". When the count reaches `errorThreshold` the
+   * loop disables itself so we don't keep poking a model that's
+   * burning quota on failures. A successful turn resets the counter.
+   */
+  consecutiveErrors: number;
+  errorThreshold: number;
 };
+
+/** Default crash-loop threshold: number of consecutive errored turns that disables the loop. */
+export const DEFAULT_ERROR_THRESHOLD = 5;
 
 export type ActionResult = {
   text: string;
@@ -31,8 +42,13 @@ export type StatusResult = {
   hasDrain: boolean;
 };
 
-export function createAcState(): AcState {
-  return { enabled: false, queue: [] };
+export function createAcState(opts: { errorThreshold?: number } = {}): AcState {
+  return {
+    enabled: false,
+    queue: [],
+    consecutiveErrors: 0,
+    errorThreshold: opts.errorThreshold ?? DEFAULT_ERROR_THRESHOLD,
+  };
 }
 
 // ---------- status rendering helpers ----------
@@ -100,6 +116,9 @@ export function acOn(state: AcState): ActionResult {
     return { text: "queue empty — add tasks first", isError: true };
   }
   state.enabled = true;
+  // Explicit re-enable means the user knows what they're doing; clear any
+  // previously tripped crash-loop counter so the loop gets a fresh budget.
+  state.consecutiveErrors = 0;
   return { text: `enabled\n${renderSummary(state)}` };
 }
 
@@ -109,12 +128,13 @@ export function acOff(state: AcState): ActionResult {
 }
 
 /**
- * Full reset: empty queue, disable, clear drain hook.
+ * Full reset: empty queue, disable, clear drain hook, reset error counter.
  */
 export function acClear(state: AcState): ActionResult {
   state.queue.length = 0;
   state.enabled = false;
   state.onDrain = undefined;
+  state.consecutiveErrors = 0;
   return { text: "cleared" };
 }
 
@@ -166,17 +186,41 @@ export function acUndrive(state: AcState): ActionResult {
 
 // ---------- agent_end evaluation ----------
 
+export type AgentEndOpts = {
+  /**
+   * True if the assistant turn that just ended had stopReason "error"
+   * (model/provider failure). The wrapper derives this from the
+   * agent_end event payload.
+   */
+  errored?: boolean;
+};
+
 /**
  * Called on each `agent_end`. Returns a string to inject as the next
  * followUp, or `undefined` to do nothing. Mutates `state.enabled` when
- * the loop should stop (fifo mode drain, or onDrain returning undefined).
+ * the loop should stop (fifo mode drain, onDrain returning undefined,
+ * or the crash-loop threshold tripping).
  *
  * Both fifo and drive injections are tagged with `[auto-continue]` so
  * they are distinguishable from ordinary user messages in the session
  * transcript. The tag pattern mirrors the existing fifo convention.
  */
-export function evaluateAgentEnd(state: AcState): string | undefined {
+export function evaluateAgentEnd(state: AcState, opts: AgentEndOpts = {}): string | undefined {
   if (!state.enabled) return undefined;
+
+  // Crash-loop guard. Update the counter before deciding whether to poke.
+  // We only count errored turns toward the threshold; a single non-errored
+  // turn fully resets the count so flaky models don't accumulate forever.
+  if (opts.errored) {
+    state.consecutiveErrors += 1;
+    if (state.consecutiveErrors >= state.errorThreshold) {
+      state.enabled = false;
+      return undefined;
+    }
+  } else {
+    state.consecutiveErrors = 0;
+  }
+
   if (state.queue.length > 0) {
     return (
       `[auto-continue] current task\n` +

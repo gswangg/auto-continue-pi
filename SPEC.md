@@ -28,7 +28,7 @@ The extension does not own scheduling, filesystem conventions, or drive-session 
 - **`onDone` hook.** Journaling and backlog mirroring are agent responsibilities, prescribed in the drive-prompt file, not enforced by the extension.
 - **Compaction preservation.** Config and journal are re-readable from disk; summary + duncan + journal are enough recovery paths. Revisit only if observed to fail.
 - **Multi-session lock.** Adds complexity for a failure mode that has not been observed. Revisit if two pi sessions in the same working dir cause problems.
-- **Fruitless-round counter.** OAuth limits + `ac off` + external SIGTERM cover termination. Add if loops on emptiness become real.
+- **Fruitless-round counter.** OAuth limits + `ac off` + external SIGTERM cover termination. Add if loops on emptiness become real. (Distinct from the crash-loop guard below — fruitless rounds are productive-looking turns that fail to make progress; crash-loop turns are model/provider errors.)
 - **Internal time-window stop.** External scheduling handles start time; external SIGTERM handles stop time. No reason for the extension to duplicate wall-clock gating.
 - **`/loop` (timer-based recurring prompts).** Different machinery (wall-clock timer, not queue-drain). Future package.
 - **Durable persistence of ac state across pi restarts.** Queue and onDrain are in-memory. Re-invoking `/skill:drive <task-name>` after restart re-seeds both from the drive-prompt file.
@@ -77,6 +77,19 @@ prompt?: string        // for drive
 
 ```typescript
 if (!state.enabled) return
+
+// Crash-loop guard. The wrapper inspects the run's last assistant
+// message and sets `errored` when stopReason === "error".
+if (errored) {
+  state.consecutiveErrors += 1
+  if (state.consecutiveErrors >= state.errorThreshold) {
+    state.enabled = false
+    return // ui.notify fires in the wrapper
+  }
+} else {
+  state.consecutiveErrors = 0
+}
+
 if (state.queue.length > 0) {
   sendUserMessage(
     `[auto-continue] current task\n` +
@@ -106,6 +119,19 @@ sendUserMessage(
 )
 // enabled stays true; next agent_end re-evaluates
 ```
+
+### Crash-loop guard
+
+The loop disables itself after `errorThreshold` (default 5) consecutive
+turns whose last assistant message has `stopReason === "error"`. A
+single non-errored turn fully resets the counter. The wrapper notifies
+the user via `ctx.ui.notify` when the threshold trips, and `ac on` (or
+`ac clear`) clears the counter so the loop gets a fresh budget on resume.
+
+The goal is narrow: prevent a flaky model or provider outage from
+burning quota by re-poking the agent endlessly. It does not gate on
+user aborts (`stopReason === "aborted"`) or on "unproductive" turns —
+those are different concerns.
 
 ## User-facing slash commands
 
@@ -169,6 +195,8 @@ type AcState = {
   enabled: boolean
   queue: string[]
   onDrain?: () => string | undefined
+  consecutiveErrors: number  // crash-loop counter
+  errorThreshold: number     // default 5
 }
 ```
 
@@ -197,6 +225,15 @@ Single extension closure, no exports, no persistence. Re-invoking `/skill:drive 
 - **agent_end with onDrain, empty queue**: injects the stored prompt as followUp, stays enabled, marks it as extension-generated, and does not include pause/undrive tool commands in the repeated followUp
 - **drive replaces previous drive**: calling `ac drive` twice replaces onDrain with the new prompt
 - **clear also undrives**: `ac clear` clears queue AND removes onDrain
+
+### Crash-loop guard
+
+- **errored turns increment** the counter; non-errored turns reset it to 0
+- **reaching the threshold** disables the loop and returns no followUp
+- **subsequent agent_ends** after a trip are no-ops while disabled
+- **`ac on` after a trip** clears the counter so the loop resumes with a fresh budget
+- **`ac clear`** resets the counter along with queue/enabled/onDrain
+- **drive mode** is subject to the same guard
 
 ### Drive skill (integration, manual QA in v1)
 
